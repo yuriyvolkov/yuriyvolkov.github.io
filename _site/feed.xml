@@ -3,10 +3,10 @@
   <channel>
     <title>Madgeniuslab</title>
     <description>everyone can change everything</description>
-    <link>https://yuriyvolkov.github.io/</link>
-    <atom:link href="https://yuriyvolkov.github.io/feed.xml" rel="self" type="application/rss+xml" />
-    <pubDate>Thu, 07 Sep 2017 12:08:02 +0300</pubDate>
-    <lastBuildDate>Thu, 07 Sep 2017 12:08:02 +0300</lastBuildDate>
+    <link>https://yuriyvolkov.github.io//</link>
+    <atom:link href="https://yuriyvolkov.github.io//feed.xml" rel="self" type="application/rss+xml" />
+    <pubDate>Thu, 07 Sep 2017 13:54:59 +0300</pubDate>
+    <lastBuildDate>Thu, 07 Sep 2017 13:54:59 +0300</lastBuildDate>
     <generator>Jekyll v3.0.2</generator>
     
       <item>
@@ -17,8 +17,8 @@
 
 </description>
         <pubDate>Thu, 07 Sep 2017 10:00:23 +0300</pubDate>
-        <link>https://yuriyvolkov.github.io/2017/hello-world/</link>
-        <guid isPermaLink="true">https://yuriyvolkov.github.io/2017/hello-world/</guid>
+        <link>https://yuriyvolkov.github.io//2017/hello-world/</link>
+        <guid isPermaLink="true">https://yuriyvolkov.github.io//2017/hello-world/</guid>
         
         <category>blog</category>
         
