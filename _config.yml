@@ -1,7 +1,7 @@
 # Site settings
 title: Madgeniuslab
 description: 'everyone can change ...'
-url: 'http://madgeniuslab.com'
+url: 'http://madgeniuslab.com/'
 baseurl: '/'
 # google_analytics: 'UA-XXXXXX-X'
 # disqus_shortname: 'your-disqus-name'
