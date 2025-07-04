@@ -1,24 +1,230 @@
----
-layout: default
----
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Hi! I'm a software engineer, cyber-tinkerer, and Linux enthusiast. Welcome to my mad science terminal">
 
-<div class="main-post-list">
+  <title>Madgeniuslab</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: #fff;
+      color: #111;
+      font-family: 'Fira Mono', 'Consolas', monospace;
+    }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    #terminal {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 0 32px #0001;
+      width: 80%;
+      max-width: 95vw;
+      height: 440px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      padding: 24px 20px;
+      overflow: hidden;
+      border: 1px solid #ddd;
+    }
+    #output {
+      flex: 1;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      font-size: 1rem;
+    }
+    #prompt {
+      flex-shrink: 0;
+      color: #1554a1;
+    }
+    #cmd {
+      caret-color: #1554a1;
+      outline: none;
+      background: none;
+      border: none;
+      color: #111;
+      font: inherit;
+      width: 85%;
+    }
+    ::selection {
+      background: #b3d1ff90;
+      color: #111;
+    }
+    a {
+      color: #1554a1;
+    }
+    @media (max-width: 650px) {
+      #terminal {
+        width: 100vw;
+        height: 100vh;
+        border-radius: 0;
+        padding: 8px 3px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="terminal">
+    <div id="output"></div>
+  </div>
+  <script>
+    // ============ FILESYSTEM & STATE ==============
+    let FS = null; // File tree loaded from index.json
+    let cwd = '/';
+    let history = [
+      'Welcome to Madgeniuslab! Type `help` to get started.',
+    ];
+    let lastCmd = '';
+    let lastDir = '/';
 
-  <ol class="post-list">
-    {% for post in paginator.posts %}
-      <li>
-        <h2 class="post-list__post-title post-title"><a href="{{ site.baseurl }}{{ post.url | remove_first: '/' }}" title="{{ post.title }}">{{ post.title }}</a></h2>
-        <p class="excerpt">{{ post.excerpt | remove: '<p>' | remove: '</p>' }}&hellip;</p>
-        <div class="post-list__meta"><time datetime="{{ post.date | date: "%-d %b %Y" }}" class="post-list__meta--date date">{{ post.date | date: "%-d %b %Y" }}</time> &#8226; <span class="post-meta__tags">on {% for tag in post.tags %}<a href="{{ site.baseurl }}tags/#{{ tag }}">{{ tag }}</a> {% endfor %}</span></div>
-        <hr class="post-list__divider">
-      </li>
-    {% endfor %}
-  </ol>
+    // --- Manifest loader ---
+    function fetchFS() {
+      return fetch('contents/index.json').then(r => r.json());
+    }
 
-  <hr class="post-list__divider ">
+    // --- FS helpers using manifest ---
+    function getNode(path) {
+      if (!FS) return null;
+      let parts = path.split('/').filter(Boolean);
+      let node = FS;
+      for (let i=0; i<parts.length; i++) {
+        let part = parts[i];
+        if (!node[part]) return null;
+        if (node[part] === 'file') {
+          if (i === parts.length-1) return {type:'file', name:part, path: 'contents/' + parts.join('/')};
+          else return null;
+        }
+        node = node[part].content;
+      }
+      return {type:'dir', content:node};
+    }
 
-  {% if paginator.previous_page or paginator.next_page %}
-      {% include pagination.html %}
-  {% endif %}
+    function resolvePath(path) {
+      if (!path || path === '.') return cwd;
+      if (path === '/') return '/';
+      let parts = cwd === '/' ? [] : cwd.split('/').filter(Boolean);
+      for (let part of path.split('/')) {
+        if (part === '' || part === '.') continue;
+        if (part === '..') parts.pop();
+        else parts.push(part);
+      }
+      return '/' + parts.join('/');
+    }
 
-</div>
+    // Basic markdown to HTML (supports headings, bullets, code)
+    function md(str) {
+      return str
+        .replace(/\n/g, '\n')
+        .replace(/^# (.*)$/gm, '<b>$1</b>')
+        .replace(/\*\*(.*)\*\*/gm, '<i>$1</i>')
+        .replace(/\*(.*)\*/gm, '<b>$1</b>')
+        .replace(/^- (.*)$/gm, '• $1')
+        .replace(/`([^`]+)`/g, '<span style="color:#1554a1;background:#e6f0fa;padding:0 2px;border-radius:2px;">$1</span>')
+        .replace(/\n/g, '<br>');
+    }
+
+    // =============== COMMANDS =================
+    const COMMANDS = {
+      help: () => 'Commands: ls [dir], cd [dir], cat [file], whoami, uname, clear, reboot',
+      ls: (args) => {
+        let dirPath = args[0] ? resolvePath(args[0]) : cwd;
+        let node = getNode(dirPath);
+        if (!node || node.type !== 'dir') return 'No such directory: ' + (args[0] || dirPath);
+        return Object.keys(node.content).map(k => (node.content[k] === 'file' ? k : k+'/')).join('  ');
+      },
+      cd: (args) => {
+        if (!args[0]) return 'Usage: cd [directory]';
+        let newPath = resolvePath(args[0]);
+        let node = getNode(newPath);
+        if (!node || node.type !== 'dir') return 'No such directory: ' + args[0];
+        lastDir = cwd;
+        cwd = newPath;
+        if (!cwd.endsWith('/')) cwd += '/';
+        return '';
+      },
+      cat: (args) => {
+        if (!args[0]) return Promise.resolve('Usage: cat [file]');
+        let filePath = args[0].startsWith('/') ? args[0] : (cwd + args[0]);
+        let node = getNode(filePath);
+        if (!node || node.type !== 'file') return Promise.resolve('No such file: ' + args[0]);
+        return fetch(node.path).then(r => r.text()).then(md).catch(()=>'Failed to load file.');
+      },
+      whoami: () => 'guest',
+      uname: () => navigator.userAgent,
+      clear: () => { history = []; render(); return ''; },
+      reboot: () => { fakeReboot(); return ''; },
+    };
+    function fakeReboot() {
+      setTimeout(() => { window.location.reload(); }, 2200);
+    }
+
+    // --- Render supports async output for 'cat' ---
+    function render(extraLine) {
+      const output = document.getElementById('output');
+      let lines = history.slice();
+      if (extraLine) lines.push(extraLine);
+      output.innerHTML = lines.map(line =>
+        line.includes('<br>') || line.includes('<b>') ? line : escapeHtml(line)
+      ).join('<br>')
+        + `<div style="display:flex;align-items:center;"><span id="prompt">guest@madgeniuslab${cwd}$&nbsp;</span><input type="text" id="cmd" autofocus autocomplete="off" spellcheck="false" /></div>`;
+      output.scrollTop = output.scrollHeight;
+
+      const cmdInput = document.getElementById('cmd');
+      if (cmdInput) {
+        cmdInput.focus();
+        cmdInput.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter') {
+            handleCommand(cmdInput.value);
+            cmdInput.value = '';
+          } else if (e.key === 'ArrowUp') {
+            cmdInput.value = lastCmd;
+            setTimeout(() => cmdInput.setSelectionRange(cmdInput.value.length, cmdInput.value.length), 0);
+          }
+        });
+      }
+    }
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    // Command handler (async for 'cat')
+    function handleCommand(cmdline) {
+      lastCmd = cmdline;
+      if (!cmdline.trim()) return;
+      history.push(`guest@madgeniuslab${cwd}$ ${cmdline}`);
+      let [cmd, ...args] = cmdline.trim().split(/\s+/);
+      let func = COMMANDS[cmd] || (() => `Command not found: ${cmd}`);
+      let res = func(args);
+      if (res && typeof res.then === 'function') {
+        // If Promise (for async cat)
+        res.then(txt => { if (txt) history.push(txt); render(); });
+      } else {
+        if (res) history.push(res);
+        render();
+      }
+    }
+
+    // ---- Initial boot: load manifest and then render ----
+    fetchFS().then(tree => {
+      FS = tree;
+      render();
+    }).catch(() => {
+      history.push('Failed to load file index (index.json).');
+      render();
+    });
+
+    // Focus on click anywhere inside terminal
+    document.getElementById('terminal').addEventListener('click', () => {
+      const cmdInput = document.getElementById('cmd');
+      if (cmdInput) cmdInput.focus();
+    });
+  </script>
+</body>
+</html>

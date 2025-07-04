@@ -1,0 +1,10 @@
+{
+  "about.md": "file",
+  "projects.md": "file",
+  "lab": {
+    "type": "dir",
+    "content": {
+      "experiments.md": "file"
+    }
+  }
+}
